@@ -1,0 +1,24 @@
+{
+    "name": "tappy-wrapper",
+    "authors": [
+        "TapTrack"
+    ],
+    "description": "Wrapper for basic Tappy tasks",
+    "main": "dist/wrapper.js",
+    "moduleType": [],
+    "license": "Apache-2.0",
+    "homepage": "",
+    "ignore": [
+        "**/.*",
+        "node_modules",
+        "bower_components",
+        "test",
+        "tests"
+    ],
+    "dependencies": {
+        "tappy-tcmp": "~1.1.0",
+        "tappy-systemfamily": "~1.0.0",
+        "tappy-basicnfcfamily": "~1.1.0",
+        "ndef": "~1.0.0"
+    }
+}

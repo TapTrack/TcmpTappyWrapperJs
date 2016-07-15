@@ -1,0 +1,30 @@
+{
+    "name": "@taptrack/tappy-wrapper",
+    "version": "0.0.1",
+    "description": "Wrapper for basic TCMP Tappy tasks",
+    "main": "dist/wrapper.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "author": "",
+    "license": "Apache-2.0",
+    "devDependencies": {
+        "del": "^2.2.0",
+        "gulp": "^3.9.1",
+        "gulp-debug": "^2.1.2",
+        "gulp-jasmine": "^2.3.0",
+        "gulp-jshint": "^2.0.1",
+        "gulp-rename": "^1.2.2",
+        "gulp-uglify": "^1.5.3",
+        "jshint": "^2.9.2",
+        "jshint-stylish": "^2.2.0",
+        "merge-stream": "^1.0.0",
+        "run-sequence": "^1.2.1"
+    },
+    "dependencies": {
+        "@taptrack/tappy": "^1.1.0",
+        "@taptrack/ndef": "^1.0.0",
+        "@taptrack/tappy-basicnfcfamily": "^1.0.0",
+        "@taptrack/tappy-systemfamily": "^1.0.0"
+    }
+}
