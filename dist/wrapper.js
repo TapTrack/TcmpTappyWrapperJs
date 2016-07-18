@@ -8,7 +8,7 @@
         try {
             tappy = require('@taptrack/tappy');
         } catch (e1) {
-            tappy = require('tappy');
+            tappy = require('tappy-tcmp');
         }
         
         var ndef = null;
@@ -139,13 +139,13 @@
         var resolverMux = new ResolverMux(
             [new NfcFamily.Resolver(), new SystemFamily.Resolver()]);
 
-        tappy.setMessageListener(function(msg) {
+        self.tappy.setMessageListener(function(msg) {
             self.eb.publish({message: msg},"received");
 
             if(resolverMux.checkFamily(msg)) {
                 var resolved = null;
                 try {
-                    resolved = self.resolver.resolveResponse(msg);
+                    resolved = resolverMux.resolveResponse(msg);
                     
                 } catch (err) {
                     //ignore
@@ -162,7 +162,7 @@
                     self.eb.publish({
                         message: msg,
                         resolved: resolved,
-                        tagTypeCode: msg.getTagCode(),
+                        tagTypeCode: msg.getTagType(),
                         tagType: Tappy.resolveTagType(msg.getTagType()),
                         tagCode: msg.getTagCode(),
                         tagCodeStr: arrToHex(msg.getTagCode())},"tag_found");
@@ -209,7 +209,7 @@
                         tagType: Tappy.resolveTagType(msg.getTagType()),
                         tagCode: msg.getTagCode(),
                         tagCodeStr: arrToHex(msg.getTagCode())
-                        },"tag_written");
+                        },"tag_locked");
                 } else if (nfcResp.ApplicationError.isTypeOf(resolved)) {
                     self.eb.publish({
                         message: msg,
@@ -245,8 +245,27 @@
 
         });
 
-        tappy.setErrorListener(function(msg) {
-
+        self.tappy.setErrorListener(function(errorType,data) {
+            var description = "Unknown error";
+            switch(errorType) {
+            case Tappy.ErrorType.NOT_CONNECTED:
+                description = "Tappy not connected";
+                break;
+            case Tappy.ErrorType.CONNECTION_ERROR:
+                description = "Connection error";
+                break;
+            case Tappy.ErrorType.INVALID_HDLC:
+                description = "Received invalid frame";
+                break;
+            case Tappy.ErrorType.INVALID_TCMP:
+                description = "Received invalid packet";
+                break;
+            }
+            self.eb.publish({
+                errorType: errorType,
+                data: data,
+                description: description
+            }, 'driver_error');
         });
     };
 
@@ -307,7 +326,7 @@
         self.sendMessage(msg);
     };
 
-    Wrapper.prototype.scanNdef = function(continuous) {
+    Wrapper.prototype.detectNdef = function(continuous) {
         var self = this;
         continuous = typeof continuous === "boolean" ? continuous : false;
 
@@ -336,7 +355,8 @@
         lock = typeof lock === "boolean" ? lock : false;
         
         var parsed = Ndef.Utils.resolveUriToPrefix(uri);
-        var msg = new BasicNfc.Commands.WriteNdefUri(0,lock,parsed.content,parsed.prefixCode);
+        var msg = new NfcFamily.Commands.WriteNdefUri(0,lock,parsed.content,parsed.prefixCode);
+        self.sendMessage(msg);
     };
 
     Wrapper.prototype.writeText = function(text,lock) {
@@ -352,7 +372,7 @@
         var self = this;
         lock = typeof lock === "boolean" ? lock : false;
 
-        var msg = new NfcFamily.Commands.WriteCustomNdef(0x00,lock,data);
+        var msg = new NfcFamily.Commands.WriteNdefCustom(0x00,lock,data);
         self.sendMessage(msg);
     };
 
@@ -380,7 +400,7 @@
      * 'sent' when any message is sent to the tappy
      * 'received' when any message is received from the tappy
      *
-     * 'error_message' when an error message is received
+     * 'error_message' when a known error message is received
      * 'tag_written' when a tag is written
      * 'tag_found' when a tag is found (not sent when ndef found)
      * 'ndef_found' when an ndef tag is found
