@@ -232,18 +232,18 @@
                     self.eb.publish({
                         message: msg,
                         resolved: resolved,
-                        tagTypeCode: msg.getTagType(),
-                        tagType: Tappy.resolveTagType(msg.getTagType()),
-                        tagCode: msg.getTagCode(),
-                        tagCodeStr: arrToHex(msg.getTagCode())},"tag_found");
+                        tagTypeCode: resolved.getTagType(),
+                        tagType: Tappy.resolveTagType(resolved.getTagType()),
+                        tagCode: resolved.getTagCode(),
+                        tagCodeStr: arrToHex(resolved.getTagCode())},"tag_found");
                 } else if (nfcResp.TagWritten.isTypeOf(resolved)) {
                     self.eb.publish({
                         message: msg,
                         resolved: resolved,
-                        tagTypeCode: msg.getTagType(),
-                        tagType: Tappy.resolveTagType(msg.getTagType()),
-                        tagCode: msg.getTagCode(),
-                        tagCodeStr: arrToHex(msg.getTagCode())},"tag_written");
+                        tagTypeCode: resolved.getTagType(),
+                        tagType: Tappy.resolveTagType(resolved.getTagType()),
+                        tagCode: resolved.getTagCode(),
+                        tagCodeStr: arrToHex(resolved.getTagCode())},"tag_written");
                 } else if (nfcResp.NdefFound.isTypeOf(resolved)) {
                     var rawNdefMessage = msg.getMessage();
                     var parsedNdefMessage = null;
@@ -253,10 +253,10 @@
                         self.eb.publish({
                             message: msg,
                             resolved: resolved,
-                            tagTypeCode: msg.getTagType(),
-                            tagType: Tappy.resolveTagType(msg.getTagType()),
-                            tagCode: msg.getTagCode(),
-                            tagCodeStr: arrToHex(msg.getTagCode()),
+                            tagTypeCode: resolved.getTagType(),
+                            tagType: Tappy.resolveTagType(resolved.getTagType()),
+                            tagCode: resolved.getTagCode(),
+                            tagCodeStr: arrToHex(resolved.getTagCode()),
                             rawNdef: rawNdefMessage,
                             error: err
                         },"invalid_ndef");
@@ -265,21 +265,26 @@
                     self.eb.publish({
                         message: msg,
                         resolved: resolved,
-                        tagTypeCode: msg.getTagType(),
-                        tagType: Tappy.resolveTagType(msg.getTagType()),
-                        tagCode: msg.getTagCode(),
-                        tagCodeStr: arrToHex(msg.getTagCode()),
+                        tagTypeCode: resolved.getTagType(),
+                        tagType: Tappy.resolveTagType(resolved.getTagType()),
+                        tagCode: resolved.getTagCode(),
+                        tagCodeStr: arrToHex(resolved.getTagCode()),
                         rawNdef: rawNdefMessage,
                         ndef: parsedNdefMessage},"ndef_found");
                 } else if (nfcResp.TagLocked.isTypeOf(resolved)) {
                     self.eb.publish({
                         message: msg,
                         resolved: resolved,
-                        tagTypeCode: msg.getTagType(),
-                        tagType: Tappy.resolveTagType(msg.getTagType()),
-                        tagCode: msg.getTagCode(),
-                        tagCodeStr: arrToHex(msg.getTagCode())
+                        tagTypeCode: resolved.getTagType(),
+                        tagType: Tappy.resolveTagType(resolved.getTagType()),
+                        tagCode: resolved.getTagCode(),
+                        tagCodeStr: arrToHex(resolved.getTagCode())
                         },"tag_locked");
+                } else if (nfcResp.ScanTimeout.isTypeOf(resolved)) {
+                    self.eb.publish({
+                        message: msg,
+                        resolved: resolved
+                    },"timeout_reached");
                 } else if (nfcResp.ApplicationError.isTypeOf(resolved)) {
                     self.eb.publish({
                         message: msg,
@@ -403,19 +408,22 @@
      *
      * @param {?boolean} continuous determines if the Tappy
      * should stop after detecting a tag or continue, default false
+     * @param {?integer} timeout how long to wait for a tag before quitting and
+     * returning a timeout frame - 0 disables, default 0
      */
-    Wrapper.prototype.detectTag = function(continuous) {
+    Wrapper.prototype.detectTag = function(continuous,timeout) {
         var self = this;
         continuous = typeof continuous === "boolean" ? continuous : false;
+        timeout = typeof timeout === "number" ? timeout : 0;
 
         var msg = null;
         if(continuous) {
             msg = new NfcFamily.Commands.StreamTags(
-                    0x00,
+                    timeout,
                     NfcFamily.PollingModes.GENERAL);
         } else {
             msg = new NfcFamily.Commands.ScanTag(
-                    0x00,
+                    timeout,
                     NfcFamily.PollingModes.GENERAL);
         }
         
@@ -427,19 +435,22 @@
      *
      * @param {?boolean} continuous determines if the Tappy
      * should stop after detecting a tag or continue, default false
+     * @param {?integer} timeout how long to wait for a tag before quitting and
+     * returning a timeout frame - 0 disables, default 0
      */
-    Wrapper.prototype.detectNdef = function(continuous) {
+    Wrapper.prototype.detectNdef = function(continuous, timeout) {
         var self = this;
         continuous = typeof continuous === "boolean" ? continuous : false;
+        timeout = typeof timeout === "number" ? timeout : 0;
 
         var msg = null;
         if(continuous) {
             msg = new NfcFamily.Commands.StreamNdef(
-                    0x00,
+                    timeout,
                     NfcFamily.PollingModes.GENERAL);
         } else {
             msg = new NfcFamily.Commands.ScanNdef(
-                    0x00,
+                    timeout,
                     NfcFamily.PollingModes.GENERAL);
         }
         
@@ -460,14 +471,17 @@
      *
      * @param {string} uri the uri to write
      * @param {?boolean} lock true to lock the tag after writing, default false
+     * @param {?integer} timeout how long to wait for a tag before quitting and
+     * returning a timeout frame - 0 disables, default 0
      */
-    Wrapper.prototype.writeUri = function(uri,lock) {
+    Wrapper.prototype.writeUri = function(uri,lock,timeout) {
         var self = this;
         uri = typeof uri === "string" ? uri : "";
         lock = typeof lock === "boolean" ? lock : false;
+        timeout = typeof timeout === "number" ? timeout : 0;
         
         var parsed = Ndef.Utils.resolveUriToPrefix(uri);
-        var msg = new NfcFamily.Commands.WriteNdefUri(0,lock,parsed.content,parsed.prefixCode);
+        var msg = new NfcFamily.Commands.WriteNdefUri(timeout,lock,parsed.content,parsed.prefixCode);
         self.sendMessage(msg);
     };
 
@@ -477,13 +491,16 @@
      *
      * @param {string} text the text to write
      * @param {?boolean} lock true to lock the tag after writing, default false
+     * @param {?integer} timeout how long to wait for a tag before quitting and
+     * returning a timeout frame - 0 disables, default 0
      */
-    Wrapper.prototype.writeText = function(text,lock) {
+    Wrapper.prototype.writeText = function(text,lock,timeout) {
         var self = this;
         text = typeof text === "string" ? text : "";
         lock = typeof lock === "boolean" ? lock : false;
+        timeout = typeof timeout === "number" ? timeout : 0;
 
-        msg = new NfcFamily.Commands.WriteNdefText(0x00,lock,text);
+        msg = new NfcFamily.Commands.WriteNdefText(timeout,lock,text);
         self.sendMessage(msg);
     };
 
@@ -493,12 +510,15 @@
      *
      * @param {data} Uint8Array the binary representation of the NDEF message
      * @param {?boolean} lock true to lock the tag after writing, default false
+     * @param {?integer} timeout how long to wait for a tag before quitting and
+     * returning a timeout frame - 0 disables, default 0
      */
-    Wrapper.prototype.writeNdef = function(data,lock) {
+    Wrapper.prototype.writeNdef = function(data,lock,timeout) {
         var self = this;
         lock = typeof lock === "boolean" ? lock : false;
+        timeout = typeof timeout === "number" ? timeout : 0;
 
-        var msg = new NfcFamily.Commands.WriteNdefCustom(0x00,lock,data);
+        var msg = new NfcFamily.Commands.WriteNdefCustom(timeout,lock,data);
         self.sendMessage(msg);
     };
 
@@ -508,12 +528,15 @@
      *
      * @param {?Uint8Array} uid of the tag to lock if one specific tag is encountered,
      * if not specified whatever tag is next presented will be locked
+     * @param {?integer} timeout how long to wait for a tag before quitting and
+     * returning a timeout frame - 0 disables, default 0
      */
-    Wrapper.prototype.lockTag = function(uid) {
+    Wrapper.prototype.lockTag = function(uid,timeout) {
         var self = this;
         uid = uid || null;
+        timeout = typeof timeout === "number" ? timeout : 0;
 
-        var msg = new NfcFamily.Commands.LockTag(0x00,uid);
+        var msg = new NfcFamily.Commands.LockTag(timeout,uid);
         self.sendMessage(msg);
     };
 
@@ -573,6 +596,20 @@
      * @object
      * @name SentMessage
      * @property {TcmpMessage} message Raw message that was received from the Tappy 
+     */
+    
+    /**
+     * Timeout reached message
+     *
+     * Published on the 'timeout_reached' topic when a ScanTimeout message is received 
+     * from the Tappy. Note that this only works for BasicNfc timeouts, if you use
+     * a different command family, its timeouts be published here and need to be 
+     * listened for separately
+     *
+     * @object
+     * @name TimeoutReachedMessage
+     * @property {TcmpMessage} message Raw message that was received from the Tappy 
+     * @property {TcmpMessage} resolved Resolved form of message 
      */
     
     /**
@@ -716,6 +753,7 @@
      * 'tag_written' when a tag is written
      * 'tag_found' when a tag is found (not sent when ndef found)
      * 'ndef_found' when an ndef tag is found
+     * 'timeout_reached' when a timeout is reached, note only for BasicNfc timeouts
      *
      * 'invalid_message' when a valid frame is received, but the payload format is wrong
      * 'invalid_ndef' when an ndef_found is received, but the ndef message doesn't parse

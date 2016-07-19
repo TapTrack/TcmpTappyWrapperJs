@@ -1,6 +1,6 @@
 {
     "name": "@taptrack/tappy-wrapper",
-    "version": "0.0.1",
+    "version": "0.0.3",
     "description": "Wrapper for basic TCMP Tappy tasks",
     "main": "dist/wrapper.js",
     "scripts": {
