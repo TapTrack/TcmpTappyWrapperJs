@@ -39,6 +39,13 @@
         root.TappyWrapper = factory(root.Tappy,root.Ndef,root.TappySystemFamily,root.TappyBasicNfcFamily);
     }
 }(this, function (Tappy,Ndef,SystemFamily,NfcFamily) {
+    /**
+     * Internal function, converts Uint8Array to
+     * a hexadecimal string notation
+     *
+     * @param {Uint8Array} data binary data
+     * @return {string} hexadecimal representation
+     */
     var arrToHex = function(data) {
         var hexString = "";
         for(var x = 0; x < data.length; x++) {
@@ -53,11 +60,24 @@
         }
         return hexString;
     };
-    
+   
+    /**
+     * Basic publish/subcribe
+     * event bus
+     *
+     * @constructor
+     */
     var EventBus = function() {
         this.subscribers = {};
     };
 
+    /**
+     * Publish a message to any subscribers 
+     * for a variadic number of topics
+     *
+     * @param {object} message data to publish
+     * @param {...string} topic topics to publish to
+     */
     EventBus.prototype.publish = function(message){
         var self = this;
         if(typeof message === "undefined") {
@@ -78,6 +98,15 @@
         }
     };
 
+    /**
+     * Sets the subscriber for a topic. 
+     * Note each topic can only have one subscriber at a time,
+     * if you want to send the message to multiple subscribers, 
+     * the subscriber has to handle that itself.
+     *
+     * @param {string} topic to subscribe to
+     * @param {function} subscriber function that takes a message as its parameter
+     */
     EventBus.prototype.setSubscriber = function(topic,subscriber) {
         var self = this;
         if(typeof subscriber !== "function") {
@@ -90,11 +119,23 @@
 
         self.subscribers[topic] = subscriber;
     };
-    
+   
+    /**
+     * Internal object for multiplexing command family resolvers
+     *
+     * @param {array[CommandFamilyResolver]} the resolvers to mux between
+     */
     var ResolverMux = function(resolvers) {
         this.resolvers = resolvers;
     };
 
+    /**
+     * Detemine if one of the resolvers in this ResolverMux
+     * will match the given command's command family.
+     *
+     * @param {TcmpMessage} message to check for command family matching
+     * @return {boolean} true if the family is supported, false otherwise
+     */
     ResolverMux.prototype.checkFamily = function(cmd) {
         var self = this;
         var supported = false;
@@ -104,6 +145,14 @@
         return supported;
     };
 
+    /**
+     * Resolves a command into its concrete type using
+     * the appropriate command family resolver
+     *
+     * @throws If the command cannot be resolved
+     * @param {TcmpMessage} command to resolve
+     * @return {TcmpMessage} resolved TCMP command
+     */
     ResolverMux.prototype.resolveCommand = function(cmd) {
         var self = this;
         for(var i = 0; i < self.resolvers.length; i++) {
@@ -115,6 +164,14 @@
         throw new Error("Unsupported command type");
     };
     
+    /**
+     * Resolves a response into its concrete type using the
+     * appropriate command family resolver
+     *
+     * @throws If the response cannot be resolved
+     * @param {TcmpMessage} response to resolve
+     * @return {TcmpMessage} resolved TCMP response
+     */
     ResolverMux.prototype.resolveResponse = function(cmd) {
         var self = this;
         for(var i = 0; i < self.resolvers.length; i++) {
@@ -126,6 +183,18 @@
         throw new Error("Unsupported response type");
     };
     
+
+    /**
+     * Tappy Wrapper
+     *
+     * Wraps a TCMP Tappy to provide a simpler and easier
+     * way to interact with Tappy devices for some common
+     * workflows.
+     *
+     * @constructor
+     * @param {object} if a 'tappy' property is present, wraps 
+     * that Tappy, else is directly passed to construct a Tappy internally.
+     */
     var Wrapper = function(params) {
         var self = this;
         if(typeof params.tappy === "object" &&
@@ -150,7 +219,8 @@
                 } catch (err) {
                     //ignore
                     self.eb.publish({
-                        message: msg},"invalid_message");
+                        message: msg,
+                        error: err},"invalid_message");
                 }
                 if(resolved === null) {
                     return;
@@ -269,11 +339,21 @@
         });
     };
 
+    /**
+     * Check if the Tappy is connected
+     *
+     * @return {boolean} connection status
+     */
     Wrapper.prototype.isConnected = function() {
         var self = this;
         return self.tappy.isConnected();
     };
 
+    /**
+     * Connect to the Tappy
+     *
+     * @param {?function} callback to call after connection completes
+     */
     Wrapper.prototype.connect = function(cb) {
         var self = this;
         return self.tappy.connect(function() {
@@ -287,6 +367,11 @@
         });
     };
 
+    /**
+     * Disconnect from the Tappy
+     *
+     * @param {?function} callback to call after disconnecting
+     */
     Wrapper.prototype.disconnect = function(cb) {
         var self = this;
         return self.tappy.disconnect(function() {
@@ -300,6 +385,11 @@
         });
     };
 
+    /**
+     * Passthrough to the Tappy's sendMessage function
+     *
+     * @param {TcmpMessage} message to send
+     */
     Wrapper.prototype.sendMessage = function(msg) {
         var self = this;
         self.tappy.sendMessage(msg);
@@ -308,6 +398,12 @@
         },"sent");
     };
 
+    /**
+     * Informs the Tappy to scan for tags in its vicinity
+     *
+     * @param {?boolean} continuous determines if the Tappy
+     * should stop after detecting a tag or continue, default false
+     */
     Wrapper.prototype.detectTag = function(continuous) {
         var self = this;
         continuous = typeof continuous === "boolean" ? continuous : false;
@@ -326,6 +422,12 @@
         self.sendMessage(msg);
     };
 
+    /**
+     * Informs the Tappy to scan for ndef-containing tags in its vicinity
+     *
+     * @param {?boolean} continuous determines if the Tappy
+     * should stop after detecting a tag or continue, default false
+     */
     Wrapper.prototype.detectNdef = function(continuous) {
         var self = this;
         continuous = typeof continuous === "boolean" ? continuous : false;
@@ -344,11 +446,21 @@
         self.sendMessage(msg);
     };
 
+    /**
+     * Alias for writeUri
+     */
     Wrapper.prototype.writeUrl = function() {
         var self = this;
         self.writeUri.apply(self,arguments);
     };
 
+    /**
+     * Informs the Tappy to write an NdefMessage containing
+     * a single uri record to the next tag it encounters
+     *
+     * @param {string} uri the uri to write
+     * @param {?boolean} lock true to lock the tag after writing, default false
+     */
     Wrapper.prototype.writeUri = function(uri,lock) {
         var self = this;
         uri = typeof uri === "string" ? uri : "";
@@ -359,6 +471,13 @@
         self.sendMessage(msg);
     };
 
+    /**
+     * Informs the Tappy to write an NdefMessage containing
+     * a single text record to the next tag it encounters
+     *
+     * @param {string} text the text to write
+     * @param {?boolean} lock true to lock the tag after writing, default false
+     */
     Wrapper.prototype.writeText = function(text,lock) {
         var self = this;
         text = typeof text === "string" ? text : "";
@@ -368,6 +487,13 @@
         self.sendMessage(msg);
     };
 
+    /**
+     * Informs the Tappy to write a custom ndef message to
+     * the next tag it encounters
+     *
+     * @param {data} Uint8Array the binary representation of the NDEF message
+     * @param {?boolean} lock true to lock the tag after writing, default false
+     */
     Wrapper.prototype.writeNdef = function(data,lock) {
         var self = this;
         lock = typeof lock === "boolean" ? lock : false;
@@ -376,6 +502,13 @@
         self.sendMessage(msg);
     };
 
+    /**
+     * Informs the Tappy to lock the next tag it encounters with
+     * optional uid filtering
+     *
+     * @param {?Uint8Array} uid of the tag to lock if one specific tag is encountered,
+     * if not specified whatever tag is next presented will be locked
+     */
     Wrapper.prototype.lockTag = function(uid) {
         var self = this;
         uid = uid || null;
@@ -384,6 +517,15 @@
         self.sendMessage(msg);
     };
 
+    /**
+     * Informs the Tappy to stop whatever it is currently doing
+     *
+     * Note: In general, you should always issue this before disconnecting
+     * as otherwise the Tappy will continue doing whatever you told it to
+     * do last until power cycled or a fatal error occurs. While this
+     * is generally innocuous, if you have issued a 'lockTag()' command, 
+     * the Tappy will lock every lockable tag that enters its range.
+     */
     Wrapper.prototype.stop = function() {
         var self = this;
         var msg = new NfcFamily.Commands.Stop();
@@ -392,13 +534,183 @@
     };
 
     /**
+     * Connect message
+     *
+     * Published on the 'connect' topic when the Tappy connects
+     *
+     * @object
+     * @name ConnectMessage
+     * @property {array} args Whatever arguments the Tappy and its communicator
+     * passed to the connect callback
+     */
+    
+    /**
+     * Disconnect message
+     *
+     * Published on the 'disconnect' topic when the Tappy disconnects
+     *
+     * @object
+     * @name DisconnectMessage
+     * @property {array} args Whatever arguments the Tappy and its communicator
+     * passed to the disconnect callback
+     */
+
+    /**
+     * Sent message
+     *
+     * Published on the 'sent' topic when a message is sent to the Tappy
+     *
+     * @object
+     * @name SentMessage
+     * @property {TcmpMessage} message Raw message that was sent to the Tappy 
+     */
+    
+    /**
+     * Received message
+     *
+     * Published on the 'received' topic when a message is received from the Tappy
+     *
+     * @object
+     * @name SentMessage
+     * @property {TcmpMessage} message Raw message that was received from the Tappy 
+     */
+    
+    /**
+     * Error message
+     *
+     * Published on the 'error_message' topic when a message indicating an error
+     * is received from the Tappy
+     *
+     * @object
+     * @name ErrorMessage
+     * @property {TcmpMessage} message Raw message that was received from the Tappy 
+     * @property {TcmpMessage} resolved Resolved form of message 
+     */
+    
+    /**
+     * Tag written message
+     *
+     * Published on the 'tag_written' topic when a TagWritten response is received
+     * from the Tappy
+     *
+     * @object
+     * @name TagWrittenMessage
+     * @property {TcmpMessage} message Raw message that was received from the Tappy 
+     * @property {TcmpMessage} resolved Resolved form of message 
+     * @property {integer} tagTypeCode Tappy tag type identifier code
+     * @property {Tappy~TagType} tagType Object describing the tag type's properties
+     * @property {Uint8Array} tagCode binary representation of the tag's unique
+     * identifier code
+     * @property {string} tagCodeStr tagCode represented as a hexadecimal string
+     */
+    
+    /**
+     * Tag locked message
+     *
+     * Published on the 'tag_locked' topic when a TagLocked response is received
+     * from the Tappy
+     *
+     * @object
+     * @name TagWrittenMessage
+     * @property {TcmpMessage} message Raw message that was received from the Tappy 
+     * @property {TcmpMessage} resolved Resolved form of message 
+     * @property {integer} tagTypeCode Tappy tag type identifier code
+     * @property {Tappy~TagType} tagType Object describing the tag type's properties
+     * @property {Uint8Array} tagCode binary representation of the tag's unique
+     * identifier code
+     * @property {string} tagCodeStr tagCode represented as a hexadecimal string
+     */
+    
+    /**
+     * Tag found message
+     *
+     * Published on the 'tag_found' topic when a TagFound response is received
+     * from the Tappy
+     *
+     * @object
+     * @name TagFoundMessage
+     * @property {TcmpMessage} message Raw message that was received from the Tappy 
+     * @property {TcmpMessage} resolved Resolved form of message 
+     * @property {integer} tagTypeCode Tappy tag type identifier code
+     * @property {Tappy~TagType} tagType Object describing the tag type's properties
+     * @property {Uint8Array} tagCode binary representation of the tag's unique
+     * identifier code
+     * @property {string} tagCodeStr tagCode represented as a hexadecimal string
+     */
+    
+    /**
+     * Ndef found message
+     *
+     * Published on the 'ndef_found' topic when an NdefFound response is received
+     * from the Tappy with a valid parsable NdefMessage
+     *
+     * @object
+     * @name NdefFoundMessage
+     * @property {TcmpMessage} message Raw message that was received from the Tappy 
+     * @property {TcmpMessage} resolved Resolved form of message 
+     * @property {integer} tagTypeCode Tappy tag type identifier code
+     * @property {Tappy~TagType} tagType Object describing the tag type's properties
+     * @property {Uint8Array} tagCode binary representation of the tag's unique
+     * identifier code
+     * @property {string} tagCodeStr tagCode represented as a hexadecimal string
+     * @property {Uint8Array} rawNdef Raw bytes for NDEF message 
+     * @property {NdefMesssage} ndef Ndef message parsed into an NdefMessage object
+     */
+    
+    /**
+     * Invalid ndef message
+     *
+     * Published on the 'invalid_ndef' topic when a NdefFound response is received
+     * from the Tappy with an invalid unparsable NdefMessage
+     *
+     * @object
+     * @name InvalidNdefMessage
+     * @property {TcmpMessage} message Raw message that was received from the Tappy 
+     * @property {TcmpMessage} resolved Resolved form of message 
+     * @property {integer} tagTypeCode Tappy tag type identifier code
+     * @property {Tappy~TagType} tagType Object describing the tag type's properties
+     * @property {Uint8Array} tagCode binary representation of the tag's unique
+     * identifier code
+     * @property {string} tagCodeStr tagCode represented as a hexadecimal string
+     * @property {Uint8Array} rawNdef Raw bytes for NDEF message 
+     * @property {error} error Error thrown by the NDEF parser
+     */
+    
+    /**
+     * Invalid message message
+     *
+     * Published on the 'invalid_message' topic when a response is received
+     * from the Tappy on the System or Basic NFC command families with a 
+     * payload that doesn't parse
+     *
+     * @object
+     * @name InvalidMessageMessage
+     * @property {TcmpMessage} message raw message that was received from the Tappy 
+     * @property {error} error exception thrown while attempting to parse message 
+     */
+    
+    /**
+     * Driver error message
+     *
+     * Published on the 'driver_error' topic when a response is received
+     * from the Tappy on the system or basic nfc command families with a 
+     * payload that doesn't parse
+     *
+     * @object
+     * @name invalidmessagemessage
+     * @property {integer} errorType Tappy errorType 
+     * @property {object} data passed by Tappy error callback
+     * @property {string} description human readable description of error 
+     */
+
+    /**
      * Set a listener for an event, each event
      * can only have one listener at a time
      *
-     * 'connect' when the Tappy connects
-     * 'disconnect' when the Tappy disconnects
-     * 'sent' when any message is sent to the tappy
-     * 'received' when any message is received from the tappy
+     * 'connect' when the Tappy connects see: ConnectMessage
+     * 'disconnect' when the Tappy disconnects see: DisconnectMessage
+     * 'sent' when any message is sent to the Tappy
+     * 'received' when any message is received from the Tappy
      *
      * 'error_message' when a known error message is received
      * 'tag_written' when a tag is written
@@ -407,7 +719,7 @@
      *
      * 'invalid_message' when a valid frame is received, but the payload format is wrong
      * 'invalid_ndef' when an ndef_found is received, but the ndef message doesn't parse
-     * 'driver_error' when the tappy driver encounters an error
+     * 'driver_error' when the Tappy driver encounters an error
      */
     Wrapper.prototype.on = function(ev,callback) {
         var self = this;
