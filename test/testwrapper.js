@@ -565,7 +565,69 @@ describe("Test received message resolution:", function() {
     });
 
     //TODO: NDEF Found response
-    //TODO: Invalid NDEF message in NDEF found
+    it("Should parse and emit NdefFound on the ndef_found channel",function() {
+        var called = false;
+        var fakeTappy = new NoOpTappy();
+        var testWrapper = new Wrapper({tappy: fakeTappy});
+        var msg = new Ndef.Message([Ndef.Utils.createTextRecord("TEST","en")]);
+
+        testWrapper.on("ndef_found",function(data) {
+            if(NfcFam.Responses.NdefFound.isTypeOf(data.message)) {
+                // just a very simple check to see if it was resolved
+                expect(typeof data.resolved.getTagCode).toEqual("function");
+
+                expect([].slice.call(data.tagCode)).toEqual([0x04,0x50,0x51,0x52,0x53,0x54,0x81]);
+                expect(data.tagCodeStr).toEqual("04505152535481");
+                
+                // NTAG 216
+                expect(data.tagTypeCode).toEqual(20);
+                expect(data.tagType.forumType).toEqual(2);
+                expect(data.tagType.maxCapacity).toEqual(888);
+
+                expect([].slice.call(data.rawNdef)).toEqual([].slice.call(msg.toByteArray()));
+                var records = data.ndef.getRecords();
+                var record = records[0];
+                var recordContents = Ndef.Utils.resolveTextRecord(record);
+                expect(recordContents.language).toEqual("en");
+                expect(recordContents.content).toEqual("TEST");
+
+                called = true;
+            }
+        });
+        fakeTappy.reply(new NfcFam.Responses.NdefFound(new Uint8Array([0x04,0x50,0x51,0x52,0x53,0x54,0x81]),20,msg.toByteArray()));
+
+        expect(called).toEqual(true);
+    });
+    
+    it("Should parse and emit NdefFounds with invalid Ndef messages on the invalid_ndef channel",function() {
+        var called = false;
+        var fakeTappy = new NoOpTappy();
+        var testWrapper = new Wrapper({tappy: fakeTappy});
+        var msg = new Uint8Array([0x33,0x12]);
+
+        testWrapper.on("invalid_ndef",function(data) {
+            if(NfcFam.Responses.NdefFound.isTypeOf(data.message)) {
+                // just a very simple check to see if it was resolved
+                expect(typeof data.resolved.getTagCode).toEqual("function");
+
+                expect([].slice.call(data.tagCode)).toEqual([0x04,0x50,0x51,0x52,0x53,0x54,0x81]);
+                expect(data.tagCodeStr).toEqual("04505152535481");
+                
+                // NTAG 216
+                expect(data.tagTypeCode).toEqual(20);
+                expect(data.tagType.forumType).toEqual(2);
+                expect(data.tagType.maxCapacity).toEqual(888);
+
+                expect([].slice.call(data.rawNdef)).toEqual([].slice.call(msg));
+
+                called = true;
+            }
+        });
+
+        fakeTappy.reply(new NfcFam.Responses.NdefFound(new Uint8Array([0x04,0x50,0x51,0x52,0x53,0x54,0x81]),20,msg));
+
+        expect(called).toEqual(true);
+    });
     
     it("Should resolve and emit LCS Mismatch on the error_message channel",function() {
         var called = false;

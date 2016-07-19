@@ -179,7 +179,7 @@
                     var parsedNdefMessage = null;
                     try {
                         parsedNdefMessage = Ndef.Message.fromBytes(rawNdefMessage);
-                    } catch (err) {
+                    } catch (err) { 
                         self.eb.publish({
                             message: msg,
                             resolved: resolved,
