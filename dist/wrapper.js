@@ -208,8 +208,13 @@
         var resolverMux = new ResolverMux(
             [new NfcFamily.Resolver(), new SystemFamily.Resolver()]);
 
+        self.userMessageListener = function() {
+
+        };
+
         self.tappy.setMessageListener(function(msg) {
             self.eb.publish({message: msg},"received");
+            self.userMessageListener(msg);
 
             if(resolverMux.checkFamily(msg)) {
                 var resolved = null;
@@ -320,6 +325,10 @@
 
         });
 
+        self.userErrorListener = function() {
+            // used for api compatibility with Tappy driver
+        };
+
         self.tappy.setErrorListener(function(errorType,data) {
             var description = "Unknown error";
             switch(errorType) {
@@ -341,7 +350,38 @@
                 data: data,
                 description: description
             }, 'driver_error');
+
+            self.userErrorListener(errorType,data);
         });
+
+    };
+
+    /**
+     * Sets a callback for error messages.
+     *
+     * This is here for api compatibility with the core Tappy
+     * driver. The error listener will be called after the 
+     * error event has been published.
+     *
+     * @param {function} listener to set
+     */
+    Wrapper.prototype.setErrorListener = function(listener) {
+        var self = this;
+        self.userErrorListener = listener;
+    };
+
+    /**
+     * Sets a callback for received messages.
+     *
+     * This is here for api compatibility with the core Tappy
+     * driver. The message listener will be called after the 
+     * error event has been published to the relevant topics.
+     *
+     * @param {function} listener to set
+     */
+    Wrapper.prototype.setMessageListener = function(listener) {
+        var self = this;
+        self.userMessageListener = listener;
     };
 
     /**
@@ -622,6 +662,7 @@
      * @name ErrorMessage
      * @property {TcmpMessage} message Raw message that was received from the Tappy 
      * @property {TcmpMessage} resolved Resolved form of message 
+     * @property {string} description human readable description of error 
      */
     
     /**

@@ -3,6 +3,8 @@ var SysFam = require('@taptrack/tappy-systemfamily');
 var NfcFam = require('@taptrack/tappy-basicnfcfamily');
 var Ndef = require('@taptrack/ndef');
 
+// TODO: add anonymizer to tcmp messages
+
 var bytesToString = function(arr) {
     var binstr = Array.prototype.map.call(arr, function (ch) {
         return String.fromCharCode(ch);
@@ -475,6 +477,21 @@ describe("Test error message forwarding:",function() {
 
         expect(called).toEqual(true);
     });
+    
+    it("Should pass error to listener an error occurs",function() {
+        var called = false;
+        var fakeTappy = new NoOpTappy();
+        var testWrapper = new Wrapper({tappy: fakeTappy});
+        testWrapper.setErrorListener(function(type,data) {
+            expect(type).toEqual(5);
+            expect(data).toEqual("DATA");
+            called = true;
+        });
+        
+        fakeTappy.error(5,"DATA");
+
+        expect(called).toEqual(true);
+    });
 });
 
 describe("Test received message resolution:", function() {
@@ -484,6 +501,20 @@ describe("Test received message resolution:", function() {
         var testWrapper = new Wrapper({tappy: fakeTappy});
         testWrapper.on("received",function(data) {
             if(SysFam.Responses.Ping.isTypeOf(data.message)) {
+                called = true;
+            }
+        });
+        fakeTappy.reply(new SysFam.Responses.Ping());
+
+        expect(called).toEqual(true);
+    });
+    
+    it("Should emit received messages on the message listener",function() {
+        var called = false;
+        var fakeTappy = new NoOpTappy();
+        var testWrapper = new Wrapper({tappy: fakeTappy});
+        testWrapper.setMessageListener(function(message) {
+            if(SysFam.Responses.Ping.isTypeOf(message)) {
                 called = true;
             }
         });
