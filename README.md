@@ -89,7 +89,7 @@ wait for a tag to be presented before giving up (0 disables timeout).
 If not specified, the Tappy will use an indefinite timeout and not lock
 tags.
 
-### .writeNdef(text, lock, timeout) 
+### .writeNdef(message, lock, timeout) 
 Write NDEF writes a custom NDEF Message to the next tag the Tappy encounters. 
 The message should be a Uint8Array containing the full NDEF message, but
 not including any tag technology-specific information (ie do not include
