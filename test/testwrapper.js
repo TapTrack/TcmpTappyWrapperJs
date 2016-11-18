@@ -48,7 +48,17 @@ NoOpTappy.prototype = {
     sendMessage: function(){},
 
     reply: function(msg) {
-        this.messageListener(msg);
+        this.messageListener({
+            getCommandFamily: function() {
+                return msg.getCommandFamily();
+            },
+            getCommandCode: function() {
+                return msg.getCommandCode();
+            },
+            getPayload: function() {
+                return msg.getPayload();
+            }
+        });
     },
 
     error: function(type,info) {
@@ -605,7 +615,7 @@ describe("Test received message resolution:", function() {
         testWrapper.on("ndef_found",function(data) {
             if(NfcFam.Responses.NdefFound.isTypeOf(data.message)) {
                 // just a very simple check to see if it was resolved
-                expect(typeof data.resolved.getTagCode).toEqual("function");
+                expect(typeof data.resolved.getMessage).toEqual("function");
 
                 expect([].slice.call(data.tagCode)).toEqual([0x04,0x50,0x51,0x52,0x53,0x54,0x81]);
                 expect(data.tagCodeStr).toEqual("04505152535481");

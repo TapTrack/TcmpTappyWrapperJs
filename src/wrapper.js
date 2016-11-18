@@ -250,7 +250,7 @@
                         tagCode: resolved.getTagCode(),
                         tagCodeStr: arrToHex(resolved.getTagCode())},"tag_written");
                 } else if (nfcResp.NdefFound.isTypeOf(resolved)) {
-                    var rawNdefMessage = msg.getMessage();
+                    var rawNdefMessage = resolved.getMessage();
                     var parsedNdefMessage = null;
                     try {
                         parsedNdefMessage = Ndef.Message.fromBytes(rawNdefMessage);
